@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow.keras import layers, models
+from tensorflow.keras import layers
 import matplotlib.pyplot as plt
 import math
 import numpy as np
@@ -85,18 +85,122 @@ def img_augmentation(images): #inputs an image into the data_aug layers
     return aug_layer(images)
 
 
-''' #VISUALIZATION OF IMAGES AFTER AUGMENTATION
-for image, label in train_ds.take(1):
-    for i in range(9):
-        ax = plt.subplot(3, 3, i + 1)
-        aug_img = img_augmentation(image)
-        plt.imshow(aug_img[0].numpy().astype("uint8"))
-        plt.title(i)
-        plt.axis("off")
-plt.suptitle("AUGMENTED SAMPLES", fontsize=16)
-plt.show()
-'''
+def plt_aug_img(): #Visualization of images after augmentation
+    for image, label in train_ds.take(1):
+        for i in range(9):
+            ax = plt.subplot(3, 3, i + 1)
+            aug_img = img_augmentation(image)
+            plt.imshow(aug_img[0].numpy().astype("uint8"))
+            plt.title(i)
+            plt.axis("off")
+    plt.suptitle("AUGMENTED SAMPLES", fontsize=16)
+    plt.show()
+    
+
+
 
 print(f"Train classes  {train_ds.class_names}")
 print(f"Val classes  {val_test_ds.class_names}")
 print(f"Test classes  {val_test_ds.class_names}")
+
+#print(train_ds)
+
+
+
+
+def pap_smear_model(dropout_rate): #model structure
+    
+    base_model = tf.keras.applications.EfficientNetB0 (
+        include_top=False,
+        weights="imagenet",
+        input_shape=(IMG_SIZE, IMG_SIZE, 3),
+        name="efficientnetb0",
+    )
+    
+    base_model.trainable = False #freezing layers
+    
+    inputs = layers.Input(shape=(IMG_SIZE, IMG_SIZE, 3))
+    x = data_aug()(inputs)
+    x = tf.keras.applications.efficientnet.preprocess_input(x) #automatic preprocessing of the input image (normalization, etc.)
+
+    x = base_model(x, training = False) #taking image as input to EfficientNet network using the pre-trained weights
+    x = tf.keras.layers.GlobalAveragePooling2D()(x)
+    x = tf.keras.layers.Dropout(dropout_rate)(x)
+    
+    outputs = tf.keras.layers.Dense(5, "softmax")(x)
+    
+    model = tf.keras.Model(inputs, outputs)
+    
+    return model
+
+
+model = pap_smear_model(0.3) #dropout rate
+
+learning_rate = 0.001
+
+model.compile(
+    optimizer= tf.keras.optimizers.Adam(learning_rate),
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+
+initial_epochs = 15
+
+history = model.fit(train_ds, validation_data= val_ds, epochs=initial_epochs) #training the model with freeze EfficientNetB0 layers
+
+
+
+#-------------Hypertuning----------------
+
+
+base_model = model.layers[2] #extracting the pre-trained model (EfficientNetB0)
+base_model.trainable = True
+fine_tune_from = 150 #EfficientNetB0 has a total of 237 layers
+
+for layer in base_model.layers[:fine_tune_from]: #freezing layers before fine_tune_from
+    layer.trainable = False
+
+fine_tune_loss = 'sparse_categorical_crossentropy'
+
+
+fine_tune_learning_rate = 0.1 * learning_rate
+
+
+fine_tune_optimizer = tf.keras.optimizers.Adam(
+    learning_rate=fine_tune_learning_rate,
+)
+    
+
+model.compile(
+    optimizer=fine_tune_optimizer,
+    loss=fine_tune_loss,
+    metrics=['accuracy']
+    )
+
+fine_tune_epochs = initial_epochs + 16
+
+fine_tune_history = model.fit( #training the fine tuned model with unfreezed layers from EfficientNetB0
+    train_ds,
+    validation_data= val_ds,
+    initial_epoch=history.epoch[-1],
+    epochs = fine_tune_epochs
+)
+
+
+test_loss, test_acc = model.evaluate(test_ds) #testing the model
+print(f"Test Accuracy: {test_acc:.4f}")
+
+
+
+
+
+plt.plot(history.history['accuracy'] + fine_tune_history.history['accuracy'], label='train_acc')
+plt.plot(history.history['val_accuracy'] + fine_tune_history.history['val_accuracy'], label='val_acc')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.show()
+
+
+model.save("pap_smear_model_final.h5")
