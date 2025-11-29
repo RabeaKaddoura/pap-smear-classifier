@@ -80,7 +80,7 @@ def data_aug(): #creates image augmentation layers
 
 
 
-def img_augmentation(images): #inputs an image into the data_aug layers
+def img_augmentation(images): #inputs an image into the data_aug layers, returns an augmented image
     aug_layer = data_aug()        
     return aug_layer(images)
 
@@ -123,7 +123,7 @@ def pap_smear_model(dropout_rate): #model structure
     x = data_aug()(inputs)
     x = tf.keras.applications.efficientnet.preprocess_input(x) #automatic preprocessing of the input image (normalization, etc.)
 
-    x = base_model(x, training = False) #taking image as input to EfficientNet network using the pre-trained weights
+    x = base_model(x, training = False) #taking image as input to EfficientNet network using the pre-trained weights (after unfreeze)
     x = tf.keras.layers.GlobalAveragePooling2D()(x)
     x = tf.keras.layers.Dropout(dropout_rate)(x)
     
@@ -134,18 +134,24 @@ def pap_smear_model(dropout_rate): #model structure
     return model
 
 
-model = pap_smear_model(0.3) #dropout rate
+model = pap_smear_model(0.6) #dropout rate
 
-learning_rate = 0.001
+initial_learning_rate = 0.001
+
+lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay( #applying learning rate decay
+    initial_learning_rate,
+    decay_steps=10,
+    decay_rate=0.95,
+    staircase=True)
 
 model.compile(
-    optimizer= tf.keras.optimizers.Adam(learning_rate),
+    optimizer= tf.keras.optimizers.Adam(lr_schedule),
     loss="sparse_categorical_crossentropy",
     metrics=["accuracy"]
 )
 
 
-initial_epochs = 15
+initial_epochs = 25
 
 history = model.fit(train_ds, validation_data= val_ds, epochs=initial_epochs) #training the model with freeze EfficientNetB0 layers
 
@@ -156,7 +162,7 @@ history = model.fit(train_ds, validation_data= val_ds, epochs=initial_epochs) #t
 
 base_model = model.layers[2] #extracting the pre-trained model (EfficientNetB0)
 base_model.trainable = True
-fine_tune_from = 150 #EfficientNetB0 has a total of 237 layers
+fine_tune_from = 90 #EfficientNetB0 has a total of 237 layers
 
 for layer in base_model.layers[:fine_tune_from]: #freezing layers before fine_tune_from
     layer.trainable = False
@@ -164,7 +170,7 @@ for layer in base_model.layers[:fine_tune_from]: #freezing layers before fine_tu
 fine_tune_loss = 'sparse_categorical_crossentropy'
 
 
-fine_tune_learning_rate = 0.1 * learning_rate
+fine_tune_learning_rate = 0.1 * initial_learning_rate
 
 
 fine_tune_optimizer = tf.keras.optimizers.Adam(
@@ -178,7 +184,7 @@ model.compile(
     metrics=['accuracy']
     )
 
-fine_tune_epochs = initial_epochs + 16
+fine_tune_epochs = initial_epochs + 28
 
 fine_tune_history = model.fit( #training the fine tuned model with unfreezed layers from EfficientNetB0
     train_ds,
@@ -200,7 +206,7 @@ plt.plot(history.history['val_accuracy'] + fine_tune_history.history['val_accura
 plt.xlabel('Epochs')
 plt.ylabel('Accuracy')
 plt.legend()
-plt.show()
+plt.show() 
 
 
-model.save("pap_smear_model_final.h5")
+model.save("pap_smear_model_final.keras")
