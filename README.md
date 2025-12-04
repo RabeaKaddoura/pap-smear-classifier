@@ -13,7 +13,7 @@ The model starts by resizing each input image to **224x224x3**, which is then ta
 
 After the preprocessing step, I started with **EfficientNetB0** layer, which was initially frozen so that only the dense layer’s weights are trained at first. After the dense layer weights were trained, I reduced the number of frozen layers to 90. From there, the model was trained on a total of **53 epochs**, **batch of 32**, a **70/15/15 split**, and was fine-tuned over multiple iterations to include **Adam optimizer**, a **dropout rate of 0.6**, and an **exponential learning rate decay**.
 
-![PAP Model Architecture](PAP_MODEL_ARCHITETCURE.png)
+![PAP Model Architecture](PAP_MODEL_ARCHITETCURE-1.png)
 ---
 
 # Results
