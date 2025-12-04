@@ -17,3 +17,5 @@ After the preprocessing step, I started with **EfficientNetB0** layer, which was
 
 # Results
 The model achieved a satisfactory **test accuracy of 98.35%** with minimal bias/variance:
+
+![Figure 9](Figure_9.png)
