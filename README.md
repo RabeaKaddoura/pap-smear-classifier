@@ -28,5 +28,5 @@ The model achieved a satisfactory **test accuracy of 98.35%** with minimal bias/
 
 **References**
 
-Hussein Samma, A. S. B., & Hamad, Q. S. (2024). \textit{Optimized deep learning model for medical image diagnosis}. Journal of Engineering Research. https://doi.org/10.1016/j.jer.2024.11.003
+Hussein Samma, A. S. B., & Hamad, Q. S. (2024). *Optimized deep learning model for medical image diagnosis*. Journal of Engineering Research. https://doi.org/10.1016/j.jer.2024.11.003
 
